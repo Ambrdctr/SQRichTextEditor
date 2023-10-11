@@ -247,14 +247,11 @@ open class SQTextEditorView: UIView {
     }
     
     private func setupEditor() {
-        if let path = Bundle.module.path(forResource: "index", ofType: "html") {
-            let url = URL(fileURLWithPath: path)
-            
-            let request = URLRequest(url: url,
-                                     cachePolicy: .reloadIgnoringLocalAndRemoteCacheData,
-                                     timeoutInterval: 5.0)
-            webView.load(request)
-        }
+        guard let path = Bundle.module.path(forResource: "index", ofType: "html"),
+              let content = try? String(contentsOfFile: path, encoding: .utf8) else { return }
+
+        let baseURL = URL(fileURLWithPath: path)
+        webView.loadHTMLString(content, baseURL: baseURL)
     }
     
     private func setFormat(_ type: RichTextFormatType,
