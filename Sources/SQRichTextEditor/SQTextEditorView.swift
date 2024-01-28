@@ -162,24 +162,24 @@ open class SQTextEditorView: UIView {
         }
         
         // inject css to html
-        if customCss == nil,
-           let cssURL = Bundle.module.url(forResource: "editor", withExtension: "css"),
-           let css = try? String(contentsOf: cssURL, encoding: .utf8) {
-            customCss = css
-        }
-        
-        if let css = customCss {
-            let cssStyle = """
-                javascript:(function() {
-                var parent = document.getElementsByTagName('head').item(0);
-                var style = document.createElement('style');
-                style.type = 'text/css';
-                style.innerHTML = window.atob('\(encodeStringTo64(fromString: css))');
-                parent.appendChild(style)})()
-            """
-            let cssScript = WKUserScript(source: cssStyle, injectionTime: .atDocumentEnd, forMainFrameOnly: false)
-            config.userContentController.addUserScript(cssScript)
-        }
+//        if customCss == nil,
+//           let cssURL = Bundle.module.url(forResource: "editor", withExtension: "css"),
+//           let css = try? String(contentsOf: cssURL, encoding: .utf8) {
+//            customCss = css
+//        }
+//        
+//        if let css = customCss {
+//            let cssStyle = """
+//                javascript:(function() {
+//                var parent = document.getElementsByTagName('head').item(0);
+//                var style = document.createElement('style');
+//                style.type = 'text/css';
+//                style.innerHTML = window.atob('\(encodeStringTo64(fromString: css))');
+//                parent.appendChild(style)})()
+//            """
+//            let cssScript = WKUserScript(source: cssStyle, injectionTime: .atDocumentEnd, forMainFrameOnly: false)
+//            config.userContentController.addUserScript(cssScript)
+//        }
         
         let _webView = WKWebView(frame: .zero, configuration: config)
         _webView.translatesAutoresizingMaskIntoConstraints = false
@@ -208,11 +208,11 @@ open class SQTextEditorView: UIView {
     
     public var customCss: String?
     
-    public init(customCss: String? = nil) {
-        self.customCss = customCss
+    public init(customCSS: String? = nil) {
+        self.customCss = customCSS
         super.init(frame: .zero)
         setupUI()
-        setupEditor()
+        setupEditor(customCSS: customCss)
     }
     
     @available(*, unavailable)
@@ -246,15 +246,16 @@ open class SQTextEditorView: UIView {
         webView.rightAnchor.constraint(equalTo: rightAnchor).isActive = true
     }
     
-    private func setupEditor() {
-        if let path = Bundle.module.path(forResource: "index", ofType: "html") {
-            let url = URL(fileURLWithPath: path)
-            
-            let request = URLRequest(url: url,
-                                     cachePolicy: .reloadIgnoringLocalAndRemoteCacheData,
-                                     timeoutInterval: 5.0)
-            webView.load(request)
+    private func setupEditor(customCSS: String? = nil) {
+        guard let path = Bundle.module.path(forResource: "index", ofType: "html"),
+              let content = try? loadHTMLAndIncludeCSS(from: path, customCSS: customCSS) else { return }
+
+        if let customCss {
+            print("Update custom CSS")
         }
+
+        let baseURL = URL(fileURLWithPath: path)
+        webView.loadHTMLString(content, baseURL: baseURL)
     }
     
     private func setFormat(_ type: RichTextFormatType,
@@ -264,7 +265,19 @@ open class SQTextEditorView: UIView {
                                        completion?(error)
                                    })
     }
-    
+
+    private func loadHTMLAndIncludeCSS(from path: String, customCSS: String?) throws -> String {
+        let content = try String(contentsOfFile: path, encoding: .utf8)
+
+        var css = customCSS
+        if customCSS == nil,
+           let editorCSS = Bundle.module.url(forResource: "editor", withExtension: "css") {
+            css = try? String(contentsOf: editorCSS, encoding: .utf8)
+        }
+
+        return content.replacingOccurrences(of: "{CSS}", with: css ?? "")
+    }
+
     private func removeFormat(_ type: RichTextFormatType,
                               completion: ((_ error: Error?) -> ())?) {
         webView.evaluateJavaScript(JSFunctionType.removeFormat(type: type).name,
